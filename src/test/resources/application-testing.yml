@@ -1,0 +1,92 @@
+# Test configuration for BTC Options Straddle Bot
+# This configuration is used during integration tests
+
+trading:
+  # Test API credentials (these are fake for testing)
+  api-key: "test-api-key-12345"
+  secret-key: "test-secret-key-67890"
+  
+  # Short session for testing
+  session-start-time: "09:00:00"
+  session-end-time: "09:10:00"
+  
+  # Fast cycles for testing
+  cycle-interval-minutes: 1
+  number-of-cycles: 3
+  
+  # Small position sizes for testing
+  position-quantity: 0.001
+  strike-distance: 5
+  
+  # Risk management settings
+  stop-loss-percentage: 30.0
+  profit-target-percentage: 50.0
+  portfolio-risk-percentage: 10.0
+  
+  # Order execution settings
+  order-timeout-seconds: 10
+  order-retry-interval-seconds: 1
+  max-order-book-depth: 3
+  
+  # Disable Telegram for testing
+  telegram-bot-token: ""
+  telegram-chat-id: ""
+  
+  # Test notifications
+  enable-startup-notifications: false
+  enable-error-notifications: false
+  enable-session-summary: false
+
+# Logging configuration for tests
+logging:
+  level:
+    com.trading.bot: DEBUG
+    org.springframework: WARN
+    org.springframework.test: INFO
+    
+  # Use console logging for tests
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Spring Boot test configuration
+spring:
+  application:
+    name: btc-options-straddle-bot-test
+    
+  # Jackson configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+      
+  # Test HTTP client settings
+  http:
+    client:
+      connect-timeout: 5000
+      read-timeout: 10000
+
+# Circuit breaker test settings
+circuit-breaker:
+  failure-threshold: 3
+  success-threshold: 2
+  timeout-minutes: 1
+  reset-timeout-minutes: 2
+
+# Retry test settings
+retry:
+  max-attempts: 2
+  initial-delay-ms: 100
+  max-delay-ms: 1000
+  multiplier: 2.0
+
+# Rate limiting test settings
+rate-limit:
+  requests-per-minute: 60
+  burst-capacity: 10
+  
+# Monitoring test settings
+monitoring:
+  enable-jvm-metrics: false
+  enable-api-metrics: false
+  metrics-export-interval: 10

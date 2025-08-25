@@ -1,11 +1,10 @@
 package com.trading.bot;
 
+import com.trading.bot.config.TradingConfig;
 import com.trading.bot.exception.ConfigurationException;
+import com.trading.bot.exception.GlobalExceptionHandler;
 import com.trading.bot.exception.TradingBotException;
-import com.trading.bot.service.LoggingService;
-import com.trading.bot.service.NotificationService;
-import com.trading.bot.service.PositionManager;
-import com.trading.bot.service.TradingSessionManager;
+import com.trading.bot.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +34,15 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
     
     @Autowired
     private LoggingService loggingService;
+    
+    @Autowired
+    private GlobalExceptionHandler globalExceptionHandler;
+    
+    @Autowired
+    private ShutdownManager shutdownManager;
+    
+    @Autowired
+    private TradingConfig tradingConfig;
     
     private static ConfigurableApplicationContext applicationContext;
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -69,15 +77,14 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
         try {
             logger.info("Application started successfully - initializing trading bot components");
             
+            // Validate configuration
+            validateConfiguration();
+            
             // Log application startup
             loggingService.logApplicationEvent("APPLICATION_STARTED", "BTC Options Straddle Bot started successfully");
             
-            // Send startup notification
-            notificationService.sendNotification(
-                "🤖 BTC OPTIONS STRADDLE BOT STARTED\n" +
-                "Application initialized successfully\n" +
-                "Waiting for trading session to begin..."
-            );
+            // Send startup notification with configuration summary
+            sendStartupNotification();
             
             // Start the trading session
             startTradingSession();
@@ -86,24 +93,96 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
             waitForShutdown();
             
         } catch (Exception e) {
-            if (e instanceof ConfigurationException) {
-                ConfigurationException configEx = (ConfigurationException) e;
-                logger.error("Configuration error during startup: {}", configEx.getFormattedMessage());
-                loggingService.logError("CONFIGURATION_ERROR", configEx.getFormattedMessage(), configEx);
-                notificationService.sendAlert("❌ CONFIGURATION ERROR\n" + configEx.getMessage());
-                throw configEx;
-            } else if (e instanceof TradingBotException) {
-                TradingBotException tradingEx = (TradingBotException) e;
-                logger.error("Trading bot error during startup: {}", tradingEx.getFormattedMessage());
-                loggingService.logError("STARTUP_ERROR", tradingEx.getFormattedMessage(), tradingEx);
-                notificationService.sendAlert("❌ STARTUP ERROR\n" + tradingEx.getMessage());
-                throw tradingEx;
-            } else {
-                logger.error("Unexpected error during startup: {}", e.getMessage(), e);
-                loggingService.logError("UNEXPECTED_STARTUP_ERROR", e.getMessage(), e);
-                notificationService.sendAlert("❌ UNEXPECTED STARTUP ERROR\n" + e.getMessage());
-                throw new TradingBotException("Unexpected startup error", e);
+            handleStartupException(e);
+        }
+    }
+    
+    private void validateConfiguration() throws ConfigurationException {
+        logger.info("Validating application configuration...");
+        
+        try {
+            // Validate required configuration parameters
+            if (tradingConfig.getApiKey() == null || tradingConfig.getApiKey().trim().isEmpty()) {
+                throw new ConfigurationException("API key is required", "api-key");
             }
+            
+            if (tradingConfig.getSecretKey() == null || tradingConfig.getSecretKey().trim().isEmpty()) {
+                throw new ConfigurationException("Secret key is required", "secret-key");
+            }
+            
+            if (tradingConfig.getSessionStartTime() == null) {
+                throw new ConfigurationException("Session start time is required", "session-start-time");
+            }
+            
+            if (tradingConfig.getSessionEndTime() == null) {
+                throw new ConfigurationException("Session end time is required", "session-end-time");
+            }
+            
+            // Validate session times
+            if (!tradingConfig.getSessionStartTime().isBefore(tradingConfig.getSessionEndTime())) {
+                throw new ConfigurationException("Session start time must be before end time", "session-times");
+            }
+            
+            // Validate numeric parameters
+            if (tradingConfig.getPositionQuantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new ConfigurationException("Position quantity must be positive", "position-quantity");
+            }
+            
+            if (tradingConfig.getCycleIntervalMinutes() <= 0) {
+                throw new ConfigurationException("Cycle interval must be positive", "cycle-interval-minutes");
+            }
+            
+            if (tradingConfig.getNumberOfCycles() <= 0) {
+                throw new ConfigurationException("Number of cycles must be positive", "number-of-cycles");
+            }
+            
+            logger.info("Configuration validation completed successfully");
+            
+        } catch (ConfigurationException e) {
+            globalExceptionHandler.handleConfigurationException(e);
+            throw e;
+        }
+    }
+    
+    private void sendStartupNotification() {
+        try {
+            String startupMessage = String.format(
+                "🤖 BTC OPTIONS STRADDLE BOT STARTED\n" +
+                "Session: %s - %s\n" +
+                "Cycles: %d (every %d minutes)\n" +
+                "Position Size: %s BTC\n" +
+                "Strike Distance: %d\n" +
+                "Waiting for trading session to begin...",
+                tradingConfig.getSessionStartTime(),
+                tradingConfig.getSessionEndTime(),
+                tradingConfig.getNumberOfCycles(),
+                tradingConfig.getCycleIntervalMinutes(),
+                tradingConfig.getPositionQuantity(),
+                tradingConfig.getStrikeDistance()
+            );
+            
+            notificationService.sendNotification(startupMessage);
+            
+        } catch (Exception e) {
+            logger.warn("Failed to send startup notification: {}", e.getMessage());
+        }
+    }
+    
+    private void handleStartupException(Exception e) throws Exception {
+        if (e instanceof ConfigurationException) {
+            ConfigurationException configEx = (ConfigurationException) e;
+            logger.error("Configuration error during startup: {}", configEx.getFormattedMessage());
+            // Exception already handled by globalExceptionHandler in validateConfiguration
+            throw configEx;
+        } else if (e instanceof TradingBotException) {
+            TradingBotException tradingEx = (TradingBotException) e;
+            globalExceptionHandler.handleTradingBotException(tradingEx, "STARTUP");
+            throw tradingEx;
+        } else {
+            logger.error("Unexpected error during startup: {}", e.getMessage(), e);
+            TradingBotException wrappedException = new TradingBotException("Unexpected startup error", e);
+            globalExceptionHandler.handleTradingBotException(wrappedException, "STARTUP");
+            throw wrappedException;
         }
     }
     
@@ -115,19 +194,17 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
         } catch (Exception e) {
             if (e instanceof TradingBotException) {
                 TradingBotException tradingEx = (TradingBotException) e;
-                logger.error("Failed to start trading session: {}", tradingEx.getFormattedMessage());
-                loggingService.logError("SESSION_START_ERROR", tradingEx.getFormattedMessage(), tradingEx);
-                notificationService.sendAlert("❌ SESSION START ERROR\n" + tradingEx.getMessage());
+                globalExceptionHandler.handleTradingBotException(tradingEx, "SESSION_START");
                 
                 if (!tradingEx.isRecoverable()) {
                     logger.error("Non-recoverable error - shutting down application");
-                    initiateShutdown("Non-recoverable session start error");
+                    shutdownManager.performGracefulShutdown("Non-recoverable session start error");
                 }
             } else {
                 logger.error("Unexpected error starting trading session: {}", e.getMessage(), e);
-                loggingService.logError("UNEXPECTED_SESSION_ERROR", e.getMessage(), e);
-                notificationService.sendAlert("❌ UNEXPECTED SESSION ERROR\n" + e.getMessage());
-                initiateShutdown("Unexpected session start error");
+                TradingBotException wrappedException = new TradingBotException("Unexpected session start error", e);
+                globalExceptionHandler.handleTradingBotException(wrappedException, "SESSION_START");
+                shutdownManager.performGracefulShutdown("Unexpected session start error");
             }
         }
     }
@@ -152,34 +229,11 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
         shutdownRequested = true;
         logger.info("Initiating application shutdown - Reason: {}", reason);
         
-        try {
-            // Log shutdown initiation
-            loggingService.logApplicationEvent("SHUTDOWN_INITIATED", "Reason: " + reason);
-            
-            // End trading session gracefully
-            if (tradingSessionManager.isSessionActive()) {
-                logger.info("Ending active trading session...");
-                tradingSessionManager.endSession(reason);
-            }
-            
-            // Send shutdown notification
-            notificationService.sendNotification(
-                "🛑 BTC OPTIONS STRADDLE BOT SHUTTING DOWN\n" +
-                "Reason: " + reason + "\n" +
-                "All positions have been handled appropriately"
-            );
-            
-            // Log final application state
-            loggingService.logApplicationEvent("APPLICATION_SHUTDOWN", "Shutdown completed successfully");
-            
-        } catch (Exception e) {
-            logger.error("Error during shutdown process: {}", e.getMessage(), e);
-            loggingService.logError("SHUTDOWN_ERROR", e.getMessage(), e);
-            
-        } finally {
-            // Release the shutdown latch
-            shutdownLatch.countDown();
-        }
+        // Delegate to shutdown manager for proper handling
+        shutdownManager.performGracefulShutdown(reason);
+        
+        // Release the shutdown latch
+        shutdownLatch.countDown();
     }
     
     @PreDestroy
@@ -187,11 +241,9 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
         logger.info("Application context is being destroyed - performing final cleanup");
         
         try {
-            // Ensure all positions are closed
-            if (positionManager.getOpenPositionCount() > 0) {
-                logger.warn("Found {} open positions during shutdown - closing them", 
-                           positionManager.getOpenPositionCount());
-                positionManager.closeAllPositions("Application shutdown");
+            // Shutdown manager handles the cleanup
+            if (!shutdownManager.isShutdownInProgress()) {
+                shutdownManager.performGracefulShutdown("Application context destroyed");
             }
             
             // Final logging
@@ -199,6 +251,8 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
             
         } catch (Exception e) {
             logger.error("Error during final cleanup: {}", e.getMessage(), e);
+            globalExceptionHandler.handleTradingBotException(
+                new TradingBotException("Final cleanup error", e), "DESTROY");
         }
     }
     
