@@ -1,181 +1,251 @@
+# ============================================================================
 # BTC Options Straddle Bot Configuration Template
+# ============================================================================
 # 
 # SECURITY NOTICE:
-# - Never commit this file with real API keys to version control
-# - Store API credentials securely and restrict file permissions (chmod 600)
-# - Use environment variables or encrypted storage for production deployments
-# - Enable IP whitelisting on your Binance account for additional security
-# - Regularly rotate API keys and monitor API usage
+# 1. Copy this file to 'config.yml' and update with your actual values
+# 2. NEVER commit config.yml with real credentials to version control
+# 3. Set file permissions to 600 (owner read/write only): chmod 600 config.yml
+# 4. Use IP restrictions on your Binance API key
+# 5. Enable only necessary permissions: Options Trading, Futures Trading (read-only)
+# 6. Consider using environment variables for sensitive data in production
+#
+# ============================================================================
+
+# Trading Configuration
+trading:
+  # ========================================
+  # REQUIRED: Binance API Credentials
+  # ========================================
+  # Get these from: Binance Account -> API Management -> Create API
+  # Required permissions: Options Trading, Futures Trading (read-only)
+  api-key: "YOUR_BINANCE_API_KEY_HERE"
+  secret-key: "YOUR_BINANCE_SECRET_KEY_HERE"
+  
+  # ========================================
+  # Trading Session Configuration
+  # ========================================
+  # Session times in 24-hour format (HH:MM:SS)
+  # Bot will only trade between these times
+  session-start-time: "12:25:00"    # Default: 12:25 PM
+  session-end-time: "13:25:00"      # Default: 1:25 PM (1 hour session)
+  
+  # ========================================
+  # Trading Cycle Configuration
+  # ========================================
+  # How often to create new iron butterfly positions
+  cycle-interval-minutes: 5          # Wait 5 minutes between cycles
+  number-of-cycles: 10              # Maximum 10 cycles per session
+  
+  # ========================================
+  # Position Configuration
+  # ========================================
+  # Size of each option position (minimum: 0.01 BTC)
+  position-quantity: 0.01           # 0.01 BTC per option leg
+  
+  # Distance from ATM for protective options (number of strikes)
+  strike-distance: 10               # Buy options 10 strikes away from ATM
+  
+  # ========================================
+  # Risk Management Configuration
+  # ========================================
+  # Individual position risk limits (percentages)
+  stop-loss-percentage: 30.0        # Close position at 30% loss
+  profit-target-percentage: 50.0    # Close position at 50% profit
+  
+  # Portfolio-level risk limit (percentage of max theoretical loss)
+  portfolio-risk-percentage: 10.0   # Emergency close all at 10% of max loss
+  
+  # ========================================
+  # Order Execution Configuration
+  # ========================================
+  # Aggressive fill strategy settings
+  order-timeout-seconds: 60         # Cancel unfilled orders after 60 seconds
+  order-retry-interval-seconds: 1   # Check/modify orders every 1 second
+  max-order-book-depth: 5          # Look up to 5 levels deep in order book
+  
+  # ========================================
+  # OPTIONAL: Telegram Notifications
+  # ========================================
+  # Create a bot via @BotFather on Telegram to get these values
+  # Leave empty to disable Telegram notifications
+  telegram-bot-token: ""            # Your Telegram bot token
+  telegram-chat-id: ""              # Your Telegram chat ID
+  
+  # Notification settings
+  enable-startup-notifications: true
+  enable-error-notifications: true
+  enable-session-summary: true
+
+# ============================================================================
+# Application Configuration
+# ============================================================================
+
+# Logging Configuration
+logging:
+  level:
+    # Application logging levels
+    com.trading.bot: INFO            # Main application logs
+    com.trading.bot.service: DEBUG   # Service layer logs (for debugging)
+    com.trading.bot.exception: WARN  # Exception handling logs
+    
+    # Spring framework logging
+    org.springframework: WARN
+    org.springframework.web: INFO
+    
+    # HTTP client logging (for API debugging)
+    okhttp3: INFO
+    
+  # Log file configuration
+  file:
+    name: logs/btc-options-bot.log
+    max-size: 100MB
+    max-history: 30                  # Keep 30 days of logs
+    
+  # Console logging pattern
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
 
 # Spring Boot Configuration
 spring:
   application:
     name: btc-options-straddle-bot
+    
+  # Profile configuration
   profiles:
-    active: production  # Options: development, testing, production
+    active: production               # Use 'testing' for test environment
+    
+  # Jackson JSON configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+      
+  # HTTP client configuration
+  http:
+    client:
+      connect-timeout: 10000         # 10 second connection timeout
+      read-timeout: 30000           # 30 second read timeout
 
-# Trading Bot Configuration
+# ============================================================================
+# Advanced Configuration (Optional)
+# ============================================================================
+
+# Circuit Breaker Configuration
+circuit-breaker:
+  failure-threshold: 5              # Open circuit after 5 failures
+  success-threshold: 3              # Close circuit after 3 successes
+  timeout-minutes: 2               # Wait 2 minutes before retry
+  reset-timeout-minutes: 10        # Reset failure count after 10 minutes
+
+# Retry Configuration
+retry:
+  max-attempts: 3                  # Maximum retry attempts for API calls
+  initial-delay-ms: 1000          # Initial delay: 1 second
+  max-delay-ms: 8000              # Maximum delay: 8 seconds
+  multiplier: 2.0                 # Exponential backoff multiplier
+
+# Rate Limiting Configuration
+rate-limit:
+  requests-per-minute: 1200       # Binance allows 1200 requests per minute
+  burst-capacity: 100             # Allow burst of 100 requests
+  
+# Monitoring Configuration
+monitoring:
+  enable-jvm-metrics: true        # Enable JVM monitoring
+  enable-api-metrics: true        # Enable API call metrics
+  metrics-export-interval: 60     # Export metrics every 60 seconds
+
+# ============================================================================
+# Environment-Specific Overrides
+# ============================================================================
+
+---
+# Testing Profile Configuration
+spring:
+  profiles: testing
+  
 trading:
-  # Binance API Configuration
-  # REQUIRED: Get these from your Binance account API management
-  # WARNING: Keep these credentials secure and never share them
-  api-key: "YOUR_BINANCE_API_KEY_HERE"           # Replace with your actual API key
-  secret-key: "YOUR_BINANCE_SECRET_KEY_HERE"     # Replace with your actual secret key
-  binance-api-url: "https://eapi.binance.com"   # Use testnet URL for testing: https://testnet.binanceops.com
+  # Use Binance testnet for testing
+  api-base-url: "https://testnet.binancefuture.com"
   
-  # Trading Session Configuration
-  # Times are in system local time (24-hour format)
-  session-start-time: "12:25"    # Default: 12:25 PM - when to start trading
-  session-end-time: "13:25"      # Default: 1:25 PM - when to stop trading and close positions
+  # Smaller position sizes for testing
+  position-quantity: 0.001
   
-  # Trading Cycle Configuration
-  cycle-interval-minutes: 5       # Default: 5 - minutes between each trading cycle
-  number-of-cycles: 10           # Default: 10 - maximum number of cycles per session
-  
-  # Position Configuration
-  position-quantity: 0.01        # Default: 0.01 - quantity for each option leg
-  strike-distance: 10            # Default: 10 - strikes away from ATM for protective options
-  
-  # Risk Management Configuration (percentages)
-  stop-loss-percentage: 30.0     # Default: 30% - individual position stop loss
-  profit-target-percentage: 50.0 # Default: 50% - individual position profit target
-  portfolio-risk-percentage: 10.0 # Default: 10% - portfolio-wide stop loss threshold
-  
-  # Order Management Configuration
-  order-timeout-seconds: 60      # Default: 60 - timeout for unfilled orders
-  order-update-interval-seconds: 1 # Default: 1 - how often to check/update orders
-  
-  # Telegram Notification Configuration
-  # OPTIONAL: Leave blank to disable Telegram notifications
-  # Get bot token from @BotFather on Telegram
-  # Get chat ID by messaging your bot and checking updates
-  telegram-bot-token: ""         # Your Telegram bot token (optional)
-  telegram-chat-id: ""           # Your Telegram chat ID (optional)
+  # Shorter session for testing
+  session-start-time: "09:00:00"
+  session-end-time: "09:10:00"
+  cycle-interval-minutes: 1
+  number-of-cycles: 3
 
-# Logging Configuration
 logging:
   level:
-    com.trading.bot: INFO          # Bot logging level: TRACE, DEBUG, INFO, WARN, ERROR
-    org.springframework: WARN      # Spring framework logging level
-    okhttp3: WARN                  # HTTP client logging level
-  
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-  
-  file:
-    name: "logs/btc-options-bot.log"
-    max-size: "100MB"
-    max-history: 30
-    total-size-cap: "1GB"
+    com.trading.bot: DEBUG          # More verbose logging for testing
 
-# Management and Monitoring (for production)
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "health,info,metrics"
-  endpoint:
-    health:
-      show-details: "when-authorized"
-
-# Example Environment-Specific Configurations
 ---
-# Development Profile
+# Development Profile Configuration
 spring:
-  config:
-    activate:
-      on-profile: development
-
+  profiles: development
+  
 trading:
-  binance-api-url: "https://testnet.binanceops.com"  # Use testnet for development
-  position-quantity: 0.001                           # Smaller quantities for testing
+  # Development-specific settings
+  enable-dry-run: true             # Simulate trades without actual execution
   
 logging:
   level:
     com.trading.bot: DEBUG
+    org.springframework: DEBUG
 
----
-# Testing Profile  
-spring:
-  config:
-    activate:
-      on-profile: testing
+# ============================================================================
+# Configuration Validation Rules
+# ============================================================================
+#
+# The following rules are enforced by the application:
+#
+# 1. API credentials must not be empty
+# 2. Session start time must be before end time
+# 3. Position quantity must be positive and >= 0.001
+# 4. Cycle interval must be positive
+# 5. Number of cycles must be positive
+# 6. Strike distance must be positive
+# 7. Risk percentages must be between 0 and 100
+# 8. If Telegram is configured, both token and chat ID must be provided
+#
+# ============================================================================
 
-trading:
-  binance-api-url: "https://testnet.binanceops.com"  # Use testnet for testing
-  session-start-time: "09:00"                        # Earlier start for testing
-  session-end-time: "09:05"                          # Short session for testing
-  cycle-interval-minutes: 1                          # Faster cycles for testing
-  number-of-cycles: 3                                # Fewer cycles for testing
-  position-quantity: 0.001                           # Minimal quantities for testing
-
-logging:
-  level:
-    com.trading.bot: DEBUG
-
----
-# Production Profile
-spring:
-  config:
-    activate:
-      on-profile: production
-
-# Production-specific settings
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "health"  # Minimal exposure in production
-
-logging:
-  level:
-    com.trading.bot: INFO
-    root: WARN
-
-# CONFIGURATION VALIDATION NOTES:
-# 
-# 1. API Keys:
-#    - Must be valid Binance Options API keys
-#    - Must have options trading permissions enabled
-#    - Recommend using IP whitelisting for security
-# 
-# 2. Session Times:
-#    - start-time must be before end-time
-#    - Times are in local system timezone
-#    - Consider market hours and liquidity
-# 
-# 3. Risk Management:
-#    - stop-loss-percentage: 0-99 (percentage of position value)
-#    - profit-target-percentage: > 0 (percentage of position value)  
-#    - portfolio-risk-percentage: 0-99 (percentage of max theoretical loss)
-# 
-# 4. Position Sizing:
-#    - position-quantity: Must be >= minimum order size for BTC options
-#    - strike-distance: Must be > 0, typically 5-20 strikes
-# 
-# 5. Telegram (Optional):
-#    - Both bot-token and chat-id must be provided if using notifications
-#    - Test notifications before live trading
-# 
-# SECURITY BEST PRACTICES:
-# 
-# 1. File Permissions:
-#    chmod 600 config.yml  # Read/write for owner only
-# 
-# 2. Environment Variables (Alternative):
-#    export TRADING_API_KEY="your_api_key"
-#    export TRADING_SECRET_KEY="your_secret_key"
-# 
-# 3. Encrypted Storage:
-#    Consider using tools like HashiCorp Vault or AWS Secrets Manager
-# 
-# 4. API Key Restrictions:
-#    - Enable only necessary permissions (options trading)
-#    - Set IP whitelist restrictions
-#    - Monitor API usage regularly
-# 
-# 5. Monitoring:
-#    - Monitor log files for suspicious activity
-#    - Set up alerts for configuration changes
-#    - Regularly audit API key usage
+# ============================================================================
+# Security Best Practices
+# ============================================================================
+#
+# 1. API Key Security:
+#    - Create a dedicated API key for this bot
+#    - Enable only required permissions (Options Trading, Futures read-only)
+#    - Set IP restrictions to your server's IP address
+#    - Regularly rotate API keys
+#
+# 2. File Security:
+#    - Set restrictive file permissions: chmod 600 config.yml
+#    - Store config file outside of web-accessible directories
+#    - Never commit config.yml to version control
+#    - Add config.yml to .gitignore
+#
+# 3. Network Security:
+#    - Use HTTPS for all API communications (enforced by default)
+#    - Consider using a VPN for additional security
+#    - Monitor API usage in Binance dashboard
+#
+# 4. Operational Security:
+#    - Monitor bot logs regularly
+#    - Set up alerts for unusual activity
+#    - Keep the bot software updated
+#    - Test configuration changes in testnet first
+#
+# 5. Risk Management:
+#    - Start with small position sizes
+#    - Monitor portfolio exposure carefully
+#    - Have manual override procedures ready
+#    - Keep emergency contact information accessible
+#
+# ============================================================================
