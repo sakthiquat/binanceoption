@@ -31,6 +31,12 @@ public class PositionManager {
     @Autowired
     private NotificationService notificationService;
     
+    @Autowired
+    private AggressiveFillStrategy aggressiveFillStrategy;
+    
+    @Autowired
+    private LoggingService loggingService;
+    
     private RiskManager riskManager; // Lazy injection to avoid circular dependency
     
     private final List<IronButterflyPosition> positions = new CopyOnWriteArrayList<>();
@@ -265,24 +271,74 @@ public class PositionManager {
     
     private void closeOptionLeg(OptionLeg leg) {
         if (leg == null || leg.getEntryPrice() == null) {
+            logger.debug("Skipping unfilled leg: {}", leg != null ? leg.getSymbol() : "null");
             return; // Skip unfilled legs
         }
         
         try {
             // Create opposite order to close the leg
             OrderSide closingSide = leg.getSide() == OrderSide.BUY ? OrderSide.SELL : OrderSide.BUY;
-            BigDecimal closingPrice = leg.getCurrentPrice() != null ? leg.getCurrentPrice() : leg.getEntryPrice();
+            
+            // Get current market price for aggressive closing
+            OrderBook orderBook = binanceClient.getOrderBook(leg.getSymbol(), 5);
+            BigDecimal closingPrice;
+            
+            if (closingSide == OrderSide.SELL) {
+                // Selling - use bid price for quick fill
+                closingPrice = orderBook.getBestBid();
+                if (closingPrice == null || closingPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                    closingPrice = leg.getCurrentPrice() != null ? leg.getCurrentPrice() : leg.getEntryPrice();
+                }
+            } else {
+                // Buying - use ask price for quick fill
+                closingPrice = orderBook.getBestAsk();
+                if (closingPrice == null || closingPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                    closingPrice = leg.getCurrentPrice() != null ? leg.getCurrentPrice() : leg.getEntryPrice();
+                }
+            }
             
             OrderRequest closeOrder = new OrderRequest(
                     leg.getSymbol(), closingSide, leg.getQuantity(), closingPrice, OrderType.LIMIT);
             
-            // Use aggressive fill to ensure quick closure
-            // Note: This is a simplified implementation - in production you might want more sophisticated closing logic
             logger.info("Closing leg: {} {} {} @ {}", 
                        closingSide, leg.getQuantity(), leg.getSymbol(), closingPrice);
             
+            // Log position closure attempt
+            loggingService.logPositionClosure(leg.getSymbol(), closingSide, leg.getQuantity(), closingPrice);
+            
+            // Execute order with aggressive fill strategy for reliable closure
+            OrderResponse closeResponse = aggressiveFillStrategy.executeOrderWithAggressiveFill(closeOrder);
+            
+            if (closeResponse.isFilled()) {
+                logger.info("Successfully closed leg {} - Filled at average price: {}", 
+                           leg.getSymbol(), closeResponse.getAvgPrice());
+                loggingService.logPositionClosureSuccess(leg.getSymbol(), closeResponse.getAvgPrice(), closeResponse.getFilledQuantity());
+            } else if (closeResponse.isPartiallyFilled()) {
+                logger.warn("Partially filled leg closure for {}: {}/{}", 
+                           leg.getSymbol(), closeResponse.getFilledQuantity(), closeResponse.getOriginalQuantity());
+                loggingService.logPositionClosurePartial(leg.getSymbol(), closeResponse.getFilledQuantity(), closeResponse.getOriginalQuantity());
+            } else {
+                logger.error("Failed to close leg {} - Order status: {}", leg.getSymbol(), closeResponse.getStatus());
+                loggingService.logPositionClosureFailure(leg.getSymbol(), closeResponse.getStatus().toString());
+            }
+            
         } catch (Exception e) {
-            logger.warn("Failed to close leg {}: {}", leg.getSymbol(), e.getMessage());
+            logger.error("Failed to close leg {}: {}", leg.getSymbol(), e.getMessage(), e);
+            loggingService.logPositionClosureError(leg.getSymbol(), e.getMessage());
+            
+            // Send alert for failed position closure
+            String alertMessage = String.format(
+                "❌ FAILED TO CLOSE POSITION LEG\n" +
+                "Symbol: %s\n" +
+                "Side: %s\n" +
+                "Quantity: %s\n" +
+                "Error: %s",
+                leg.getSymbol(),
+                leg.getSide() == OrderSide.BUY ? "SELL" : "BUY",
+                leg.getQuantity(),
+                e.getMessage()
+            );
+            notificationService.sendAlert(alertMessage);
         }
     }
     
@@ -290,9 +346,89 @@ public class PositionManager {
         List<IronButterflyPosition> openPositions = getOpenPositions();
         
         logger.warn("Closing all {} open positions - Reason: {}", openPositions.size(), reason);
+        loggingService.logTradingAction("CLOSE_ALL_POSITIONS", 
+            String.format("Count: %d, Reason: %s", openPositions.size(), reason));
+        
+        int successCount = 0;
+        int failureCount = 0;
         
         for (IronButterflyPosition position : openPositions) {
-            closePosition(position, PositionStatus.CLOSED_RISK, reason);
+            try {
+                closePosition(position, PositionStatus.CLOSED_RISK, reason);
+                successCount++;
+            } catch (Exception e) {
+                failureCount++;
+                logger.error("Failed to close position {} during bulk closure: {}", 
+                           position.getPositionId(), e.getMessage(), e);
+                loggingService.logError("PositionManager", "closeAllPositions", 
+                    String.format("PositionId: %s, Error: %s", position.getPositionId(), e.getMessage()), e);
+            }
         }
+        
+        logger.info("Bulk position closure completed - Success: {}, Failures: {}", successCount, failureCount);
+        loggingService.logTradingAction("CLOSE_ALL_POSITIONS_COMPLETE", 
+            String.format("Success: %d, Failures: %d", successCount, failureCount));
+        
+        if (failureCount > 0) {
+            String alertMessage = String.format(
+                "⚠️ BULK POSITION CLOSURE ISSUES\n" +
+                "Reason: %s\n" +
+                "Total Positions: %d\n" +
+                "Successfully Closed: %d\n" +
+                "Failed to Close: %d\n" +
+                "Manual intervention may be required!",
+                reason, openPositions.size(), successCount, failureCount
+            );
+            notificationService.sendAlert(alertMessage);
+        }
+    }
+    
+    /**
+     * Enhanced position closure with retry logic and better error handling
+     */
+    public void closePositionWithRetry(IronButterflyPosition position, PositionStatus status, String reason, int maxRetries) {
+        int attempts = 0;
+        Exception lastException = null;
+        
+        while (attempts < maxRetries) {
+            try {
+                closePosition(position, status, reason);
+                logger.info("Successfully closed position {} on attempt {}", position.getPositionId(), attempts + 1);
+                return; // Success
+            } catch (Exception e) {
+                attempts++;
+                lastException = e;
+                logger.warn("Failed to close position {} on attempt {}/{}: {}", 
+                           position.getPositionId(), attempts, maxRetries, e.getMessage());
+                
+                if (attempts < maxRetries) {
+                    try {
+                        // Exponential backoff between retries
+                        long waitTime = (long) Math.pow(2, attempts) * 1000; // 2s, 4s, 8s, etc.
+                        Thread.sleep(Math.min(waitTime, 30000)); // Max 30 seconds
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // All retries failed
+        logger.error("Failed to close position {} after {} attempts", position.getPositionId(), maxRetries);
+        loggingService.logError("PositionManager", "closePositionWithRetry", 
+            String.format("PositionId: %s, Attempts: %d", position.getPositionId(), maxRetries), lastException);
+        
+        String alertMessage = String.format(
+            "❌ CRITICAL: FAILED TO CLOSE POSITION\n" +
+            "Position ID: %s\n" +
+            "Reason: %s\n" +
+            "Attempts: %d\n" +
+            "Last Error: %s\n" +
+            "MANUAL INTERVENTION REQUIRED!",
+            position.getPositionId(), reason, maxRetries, 
+            lastException != null ? lastException.getMessage() : "Unknown error"
+        );
+        notificationService.sendAlert(alertMessage);
     }
 }

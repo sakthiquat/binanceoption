@@ -32,6 +32,9 @@ public class OrderService {
     @Autowired
     private LoggingService loggingService;
     
+    @Autowired
+    private CircuitBreaker circuitBreaker;
+    
     private OkHttpClient httpClient;
     private ObjectMapper objectMapper;
     
@@ -82,6 +85,8 @@ public class OrderService {
                     
                     if (!response.isSuccessful()) {
                         logger.error("Order placement failed: {} - {}", response.code(), responseBody);
+                        loggingService.logError("OrderService", "placeOrder", 
+                            String.format("HTTP %d: %s", response.code(), responseBody), null);
                         throw new RuntimeException("Failed to place order: " + response.code() + " - " + responseBody);
                     }
                     
@@ -132,7 +137,7 @@ public class OrderService {
                 
                 Request request = new Request.Builder()
                         .url(url)
-                        .put(body)
+                        .post(body)  // Changed from PUT to POST for Binance Options API compatibility
                         .addHeader("X-MBX-APIKEY", config.getApiKey())
                         .addHeader("Content-Type", "application/x-www-form-urlencoded")
                         .build();
@@ -142,6 +147,8 @@ public class OrderService {
                     
                     if (!response.isSuccessful()) {
                         logger.error("Order modification failed: {} - {}", response.code(), responseBody);
+                        loggingService.logError("OrderService", "modifyOrder", 
+                            String.format("HTTP %d: %s", response.code(), responseBody), null);
                         throw new RuntimeException("Failed to modify order: " + response.code() + " - " + responseBody);
                     }
                     
@@ -150,6 +157,11 @@ public class OrderService {
                                orderResponse.getSymbol(), 
                                orderResponse.getPrice(),
                                orderResponse.getOrderId());
+                    
+                    // Log successful modification
+                    loggingService.logTradingAction("ORDER_MODIFIED", 
+                        String.format("OrderId: %s, Symbol: %s, NewPrice: %s", 
+                            orderResponse.getOrderId(), orderResponse.getSymbol(), orderResponse.getPrice()));
                     
                     return orderResponse;
                 }
@@ -185,6 +197,8 @@ public class OrderService {
                     
                     if (!response.isSuccessful()) {
                         logger.error("Order cancellation failed: {} - {}", response.code(), responseBody);
+                        loggingService.logError("OrderService", "cancelOrder", 
+                            String.format("HTTP %d: %s", response.code(), responseBody), null);
                         throw new RuntimeException("Failed to cancel order: " + response.code() + " - " + responseBody);
                     }
                     
@@ -192,6 +206,11 @@ public class OrderService {
                     logger.info("Order cancelled successfully: {} (Order ID: {})", 
                                orderResponse.getSymbol(), 
                                orderResponse.getOrderId());
+                    
+                    // Log successful cancellation
+                    loggingService.logTradingAction("ORDER_CANCELLED", 
+                        String.format("OrderId: %s, Symbol: %s", 
+                            orderResponse.getOrderId(), orderResponse.getSymbol()));
                     
                     return orderResponse;
                 }
@@ -227,6 +246,8 @@ public class OrderService {
                     
                     if (!response.isSuccessful()) {
                         logger.error("Get order status failed: {} - {}", response.code(), responseBody);
+                        loggingService.logError("OrderService", "getOrderStatus", 
+                            String.format("HTTP %d: %s", response.code(), responseBody), null);
                         throw new RuntimeException("Failed to get order status: " + response.code() + " - " + responseBody);
                     }
                     

@@ -221,6 +221,50 @@ public class LoggingService {
         clearMDC();
     }
     
+    // Position closure logging methods
+    public void logPositionClosure(String symbol, OrderSide side, BigDecimal quantity, BigDecimal price) {
+        setTimestamp();
+        MDC.put("symbol", symbol);
+        
+        positionLogger.info("POSITION_CLOSURE_ATTEMPT | SYMBOL: {} | SIDE: {} | QTY: {} | PRICE: {}", 
+                           symbol, side, quantity, price);
+        clearMDC();
+    }
+    
+    public void logPositionClosureSuccess(String symbol, BigDecimal avgPrice, BigDecimal filledQuantity) {
+        setTimestamp();
+        MDC.put("symbol", symbol);
+        
+        positionLogger.info("POSITION_CLOSURE_SUCCESS | SYMBOL: {} | AVG_PRICE: {} | FILLED_QTY: {}", 
+                           symbol, avgPrice, filledQuantity);
+        clearMDC();
+    }
+    
+    public void logPositionClosurePartial(String symbol, BigDecimal filledQuantity, BigDecimal originalQuantity) {
+        setTimestamp();
+        MDC.put("symbol", symbol);
+        
+        positionLogger.warn("POSITION_CLOSURE_PARTIAL | SYMBOL: {} | FILLED: {}/{}", 
+                           symbol, filledQuantity, originalQuantity);
+        clearMDC();
+    }
+    
+    public void logPositionClosureFailure(String symbol, String status) {
+        setTimestamp();
+        MDC.put("symbol", symbol);
+        
+        positionLogger.error("POSITION_CLOSURE_FAILURE | SYMBOL: {} | STATUS: {}", symbol, status);
+        clearMDC();
+    }
+    
+    public void logPositionClosureError(String symbol, String error) {
+        setTimestamp();
+        MDC.put("symbol", symbol);
+        
+        positionLogger.error("POSITION_CLOSURE_ERROR | SYMBOL: {} | ERROR: {}", symbol, error);
+        clearMDC();
+    }
+    
     public void logSessionSummary(SessionSummaryData summary) {
         setTimestamp();
         
