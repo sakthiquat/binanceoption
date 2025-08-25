@@ -22,21 +22,34 @@ public class APIException extends TradingBotException {
     }
     
     public APIException(String message, int httpStatusCode) {
-        super(message, "API_ERROR", true);
+        super(message, "API_ERROR", isRecoverableStatus(httpStatusCode, null));
         this.httpStatusCode = httpStatusCode;
         this.apiErrorCode = null;
     }
     
     public APIException(String message, int httpStatusCode, String apiErrorCode) {
-        super(message, "API_ERROR", httpStatusCode < 500);
+        super(message, "API_ERROR", isRecoverableStatus(httpStatusCode, apiErrorCode));
         this.httpStatusCode = httpStatusCode;
         this.apiErrorCode = apiErrorCode;
     }
     
     public APIException(String message, Throwable cause, int httpStatusCode, String apiErrorCode) {
-        super(message, cause, "API_ERROR", httpStatusCode < 500);
+        super(message, cause, "API_ERROR", isRecoverableStatus(httpStatusCode, apiErrorCode));
         this.httpStatusCode = httpStatusCode;
         this.apiErrorCode = apiErrorCode;
+    }
+    
+    private static boolean isRecoverableStatus(int httpStatusCode, String apiErrorCode) {
+        // Rate limit errors are recoverable
+        if (httpStatusCode == 429 || (apiErrorCode != null && apiErrorCode.contains("RATE_LIMIT"))) {
+            return true;
+        }
+        // 4xx and 5xx errors are generally not recoverable
+        if (httpStatusCode >= 400) {
+            return false;
+        }
+        // Other errors default to recoverable
+        return true;
     }
     
     public int getHttpStatusCode() {

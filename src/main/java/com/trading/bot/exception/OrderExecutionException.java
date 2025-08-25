@@ -38,6 +38,13 @@ public class OrderExecutionException extends TradingBotException {
         this.symbol = null;
     }
     
+    public OrderExecutionException(String message, String errorCode, boolean recoverable) {
+        super(message, errorCode, recoverable);
+        this.orderId = null;
+        this.orderType = null;
+        this.symbol = null;
+    }
+    
     public String getOrderId() {
         return orderId;
     }

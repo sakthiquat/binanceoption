@@ -85,23 +85,25 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
             // Wait for shutdown signal
             waitForShutdown();
             
-        } catch (ConfigurationException e) {
-            logger.error("Configuration error during startup: {}", e.getFormattedMessage());
-            loggingService.logError("CONFIGURATION_ERROR", e.getFormattedMessage(), e);
-            notificationService.sendAlert("❌ CONFIGURATION ERROR\n" + e.getMessage());
-            throw e;
-            
-        } catch (TradingBotException e) {
-            logger.error("Trading bot error during startup: {}", e.getFormattedMessage());
-            loggingService.logError("STARTUP_ERROR", e.getFormattedMessage(), e);
-            notificationService.sendAlert("❌ STARTUP ERROR\n" + e.getMessage());
-            throw e;
-            
         } catch (Exception e) {
-            logger.error("Unexpected error during startup: {}", e.getMessage(), e);
-            loggingService.logError("UNEXPECTED_STARTUP_ERROR", e.getMessage(), e);
-            notificationService.sendAlert("❌ UNEXPECTED STARTUP ERROR\n" + e.getMessage());
-            throw new TradingBotException("Unexpected startup error", e);
+            if (e instanceof ConfigurationException) {
+                ConfigurationException configEx = (ConfigurationException) e;
+                logger.error("Configuration error during startup: {}", configEx.getFormattedMessage());
+                loggingService.logError("CONFIGURATION_ERROR", configEx.getFormattedMessage(), configEx);
+                notificationService.sendAlert("❌ CONFIGURATION ERROR\n" + configEx.getMessage());
+                throw configEx;
+            } else if (e instanceof TradingBotException) {
+                TradingBotException tradingEx = (TradingBotException) e;
+                logger.error("Trading bot error during startup: {}", tradingEx.getFormattedMessage());
+                loggingService.logError("STARTUP_ERROR", tradingEx.getFormattedMessage(), tradingEx);
+                notificationService.sendAlert("❌ STARTUP ERROR\n" + tradingEx.getMessage());
+                throw tradingEx;
+            } else {
+                logger.error("Unexpected error during startup: {}", e.getMessage(), e);
+                loggingService.logError("UNEXPECTED_STARTUP_ERROR", e.getMessage(), e);
+                notificationService.sendAlert("❌ UNEXPECTED STARTUP ERROR\n" + e.getMessage());
+                throw new TradingBotException("Unexpected startup error", e);
+            }
         }
     }
     
@@ -110,21 +112,23 @@ public class BtcOptionsStraddleBotApplication implements CommandLineRunner {
             logger.info("Starting trading session...");
             tradingSessionManager.startTradingSession();
             
-        } catch (TradingBotException e) {
-            logger.error("Failed to start trading session: {}", e.getFormattedMessage());
-            loggingService.logError("SESSION_START_ERROR", e.getFormattedMessage(), e);
-            notificationService.sendAlert("❌ SESSION START ERROR\n" + e.getMessage());
-            
-            if (!e.isRecoverable()) {
-                logger.error("Non-recoverable error - shutting down application");
-                initiateShutdown("Non-recoverable session start error");
-            }
-            
         } catch (Exception e) {
-            logger.error("Unexpected error starting trading session: {}", e.getMessage(), e);
-            loggingService.logError("UNEXPECTED_SESSION_ERROR", e.getMessage(), e);
-            notificationService.sendAlert("❌ UNEXPECTED SESSION ERROR\n" + e.getMessage());
-            initiateShutdown("Unexpected session start error");
+            if (e instanceof TradingBotException) {
+                TradingBotException tradingEx = (TradingBotException) e;
+                logger.error("Failed to start trading session: {}", tradingEx.getFormattedMessage());
+                loggingService.logError("SESSION_START_ERROR", tradingEx.getFormattedMessage(), tradingEx);
+                notificationService.sendAlert("❌ SESSION START ERROR\n" + tradingEx.getMessage());
+                
+                if (!tradingEx.isRecoverable()) {
+                    logger.error("Non-recoverable error - shutting down application");
+                    initiateShutdown("Non-recoverable session start error");
+                }
+            } else {
+                logger.error("Unexpected error starting trading session: {}", e.getMessage(), e);
+                loggingService.logError("UNEXPECTED_SESSION_ERROR", e.getMessage(), e);
+                notificationService.sendAlert("❌ UNEXPECTED SESSION ERROR\n" + e.getMessage());
+                initiateShutdown("Unexpected session start error");
+            }
         }
     }
     

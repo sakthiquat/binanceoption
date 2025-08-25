@@ -198,6 +198,29 @@ public class LoggingService {
         clearMDC();
     }
     
+    // Overloaded method for new exception hierarchy
+    public void logError(String errorCode, String message, Throwable exception) {
+        setTimestamp();
+        MDC.put("errorCode", errorCode);
+        
+        Logger logger = LoggerFactory.getLogger("ERROR");
+        if (exception != null) {
+            logger.error("ERROR | CODE: {} | MESSAGE: {}", errorCode, message, exception);
+        } else {
+            logger.error("ERROR | CODE: {} | MESSAGE: {}", errorCode, message);
+        }
+        clearMDC();
+    }
+    
+    public void logApplicationEvent(String eventType, String details) {
+        setTimestamp();
+        MDC.put("eventType", eventType);
+        
+        Logger logger = LoggerFactory.getLogger("APPLICATION");
+        logger.info("APP_EVENT | TYPE: {} | DETAILS: {}", eventType, details);
+        clearMDC();
+    }
+    
     public void logSessionSummary(SessionSummaryData summary) {
         setTimestamp();
         
