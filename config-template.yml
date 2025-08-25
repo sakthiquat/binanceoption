@@ -19,8 +19,8 @@ trading:
   # ========================================
   # Get these from: Binance Account -> API Management -> Create API
   # Required permissions: Options Trading, Futures Trading (read-only)
-  api-key: "hHdUaIiVk4nV7AVskYiFIK1U7I6wqWXDIDloIXAv8MfMM01lfeJKcyjbXCtpNeGC"
-  secret-key: "rPBOAkSxn02Rmv26Hni3N9lU3595lCV7p1Jjn86dMDe8PxM3UzDEVd0HRG0ggNiW"
+  api-key: "YOUR_BINANCE_API_KEY_HERE"
+  secret-key: "YOUR_BINANCE_SECRET_KEY_HERE"
   
   # ========================================
   # Trading Session Configuration
@@ -69,9 +69,8 @@ trading:
   # ========================================
   # Create a bot via @BotFather on Telegram to get these values
   # Leave empty to disable Telegram notifications
-  telegram-bot-token: "AAFRPUgszliMB8Gxw8qPE0YRTa3eMd6_hDw"            
-  telegram-chat-id: "-100304277317"              
-  # Your Telegram chat ID
+  telegram-bot-token: ""            # Your Telegram bot token
+  telegram-chat-id: ""              # Your Telegram chat ID
   
   # Notification settings
   enable-startup-notifications: true
