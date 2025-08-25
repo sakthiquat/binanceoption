@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <!-- Console Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Main Application Log File -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/btc-options-bot.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/btc-options-bot.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %X{timestamp:-} %X{positionId:-} %X{orderId:-} %X{symbol:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Trading Actions Log -->
+    <appender name="TRADING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/trading-actions.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/trading-actions.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Orders Log -->
+    <appender name="ORDERS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/orders.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/orders.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %X{orderId:-} %X{symbol:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Positions Log -->
+    <appender name="POSITIONS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/positions.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/positions.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %X{positionId:-} %X{atmStrike:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Risk Management Log -->
+    <appender name="RISK_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/risk-management.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/risk-management.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %X{eventType:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Session Log -->
+    <appender name="SESSION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/sessions.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/sessions.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>365</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %X{cycleNumber:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Error Log -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/errors.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/errors.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>365</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %logger{36} - %X{component:-} %X{operation:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Specific Loggers -->
+    <logger name="TRADING" level="INFO" additivity="false">
+        <appender-ref ref="TRADING_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <logger name="ORDERS" level="INFO" additivity="false">
+        <appender-ref ref="ORDERS_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <logger name="POSITIONS" level="INFO" additivity="false">
+        <appender-ref ref="POSITIONS_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <logger name="RISK" level="INFO" additivity="false">
+        <appender-ref ref="RISK_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <logger name="SESSION" level="INFO" additivity="false">
+        <appender-ref ref="SESSION_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <!-- Application Loggers -->
+    <logger name="com.trading.bot" level="INFO"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="okhttp3" level="WARN"/>
+    
+    <!-- Root Logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+    
+</configuration>

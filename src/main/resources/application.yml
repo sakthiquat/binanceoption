@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: btc-options-straddle-bot
+  
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+logging:
+  level:
+    com.trading.bot: INFO
+    org.springframework: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/btc-options-bot.log
+
+trading:
+  # API Configuration (REQUIRED - Set these in external config)
+  api-key: ${BINANCE_API_KEY:}
+  secret-key: ${BINANCE_SECRET_KEY:}
+  
+  # Session Configuration
+  session-start-time: "12:25:00"
+  session-end-time: "13:25:00"
+  
+  # Trading Parameters
+  cycle-interval-minutes: 5
+  number-of-cycles: 10
+  position-quantity: 0.01
+  strike-distance: 10
+  
+  # Risk Management
+  stop-loss-percentage: 30.0
+  profit-target-percentage: 50.0
+  portfolio-risk-percentage: 10.0
+  
+  # Notification Configuration (Optional)
+  telegram-bot-token: ${TELEGRAM_BOT_TOKEN:}
+  telegram-chat-id: ${TELEGRAM_CHAT_ID:}
+  
+  # Binance API Configuration
+  binance-api-url: "https://eapi.binance.com"
+  
+  # Order Management
+  order-timeout-seconds: 60
+  order-update-interval-seconds: 1

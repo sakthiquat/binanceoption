@@ -1,0 +1,43 @@
+# BTC Options Straddle Bot Configuration
+# Copy this file to config.yml and update with your actual values
+
+trading:
+  # REQUIRED: Binance API Credentials
+  # Get these from your Binance account -> API Management
+  api-key: "your_binance_api_key_here"
+  secret-key: "your_binance_secret_key_here"
+  
+  # Trading Session Times (24-hour format)
+  session-start-time: "12:25:00"  # Default: 12:25 PM
+  session-end-time: "13:25:00"    # Default: 1:25 PM
+  
+  # Trading Cycle Configuration
+  cycle-interval-minutes: 5       # Wait time between cycles
+  number-of-cycles: 10           # Total cycles per session
+  
+  # Position Configuration
+  position-quantity: 0.01        # Quantity per option leg (minimum: 0.01)
+  strike-distance: 10           # Strikes away from ATM for protective options
+  
+  # Risk Management
+  stop-loss-percentage: 30.0     # Individual position stop loss
+  profit-target-percentage: 50.0 # Individual position profit target
+  portfolio-risk-percentage: 10.0 # Portfolio-level stop loss
+  
+  # OPTIONAL: Telegram Notifications
+  # Create a bot via @BotFather on Telegram to get these
+  telegram-bot-token: "your_telegram_bot_token_here"
+  telegram-chat-id: "your_telegram_chat_id_here"
+
+# Logging Configuration
+logging:
+  level:
+    com.trading.bot: INFO
+  file:
+    name: logs/btc-options-bot.log
+
+# SECURITY NOTES:
+# 1. Never commit this file with real credentials to version control
+# 2. Set appropriate file permissions (600) to protect credentials
+# 3. Use IP restrictions on your Binance API key
+# 4. Enable only necessary permissions on your API key (Options Trading)

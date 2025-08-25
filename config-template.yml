@@ -1,0 +1,181 @@
+# BTC Options Straddle Bot Configuration Template
+# 
+# SECURITY NOTICE:
+# - Never commit this file with real API keys to version control
+# - Store API credentials securely and restrict file permissions (chmod 600)
+# - Use environment variables or encrypted storage for production deployments
+# - Enable IP whitelisting on your Binance account for additional security
+# - Regularly rotate API keys and monitor API usage
+
+# Spring Boot Configuration
+spring:
+  application:
+    name: btc-options-straddle-bot
+  profiles:
+    active: production  # Options: development, testing, production
+
+# Trading Bot Configuration
+trading:
+  # Binance API Configuration
+  # REQUIRED: Get these from your Binance account API management
+  # WARNING: Keep these credentials secure and never share them
+  api-key: "YOUR_BINANCE_API_KEY_HERE"           # Replace with your actual API key
+  secret-key: "YOUR_BINANCE_SECRET_KEY_HERE"     # Replace with your actual secret key
+  binance-api-url: "https://eapi.binance.com"   # Use testnet URL for testing: https://testnet.binanceops.com
+  
+  # Trading Session Configuration
+  # Times are in system local time (24-hour format)
+  session-start-time: "12:25"    # Default: 12:25 PM - when to start trading
+  session-end-time: "13:25"      # Default: 1:25 PM - when to stop trading and close positions
+  
+  # Trading Cycle Configuration
+  cycle-interval-minutes: 5       # Default: 5 - minutes between each trading cycle
+  number-of-cycles: 10           # Default: 10 - maximum number of cycles per session
+  
+  # Position Configuration
+  position-quantity: 0.01        # Default: 0.01 - quantity for each option leg
+  strike-distance: 10            # Default: 10 - strikes away from ATM for protective options
+  
+  # Risk Management Configuration (percentages)
+  stop-loss-percentage: 30.0     # Default: 30% - individual position stop loss
+  profit-target-percentage: 50.0 # Default: 50% - individual position profit target
+  portfolio-risk-percentage: 10.0 # Default: 10% - portfolio-wide stop loss threshold
+  
+  # Order Management Configuration
+  order-timeout-seconds: 60      # Default: 60 - timeout for unfilled orders
+  order-update-interval-seconds: 1 # Default: 1 - how often to check/update orders
+  
+  # Telegram Notification Configuration
+  # OPTIONAL: Leave blank to disable Telegram notifications
+  # Get bot token from @BotFather on Telegram
+  # Get chat ID by messaging your bot and checking updates
+  telegram-bot-token: ""         # Your Telegram bot token (optional)
+  telegram-chat-id: ""           # Your Telegram chat ID (optional)
+
+# Logging Configuration
+logging:
+  level:
+    com.trading.bot: INFO          # Bot logging level: TRACE, DEBUG, INFO, WARN, ERROR
+    org.springframework: WARN      # Spring framework logging level
+    okhttp3: WARN                  # HTTP client logging level
+  
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  
+  file:
+    name: "logs/btc-options-bot.log"
+    max-size: "100MB"
+    max-history: 30
+    total-size-cap: "1GB"
+
+# Management and Monitoring (for production)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics"
+  endpoint:
+    health:
+      show-details: "when-authorized"
+
+# Example Environment-Specific Configurations
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: development
+
+trading:
+  binance-api-url: "https://testnet.binanceops.com"  # Use testnet for development
+  position-quantity: 0.001                           # Smaller quantities for testing
+  
+logging:
+  level:
+    com.trading.bot: DEBUG
+
+---
+# Testing Profile  
+spring:
+  config:
+    activate:
+      on-profile: testing
+
+trading:
+  binance-api-url: "https://testnet.binanceops.com"  # Use testnet for testing
+  session-start-time: "09:00"                        # Earlier start for testing
+  session-end-time: "09:05"                          # Short session for testing
+  cycle-interval-minutes: 1                          # Faster cycles for testing
+  number-of-cycles: 3                                # Fewer cycles for testing
+  position-quantity: 0.001                           # Minimal quantities for testing
+
+logging:
+  level:
+    com.trading.bot: DEBUG
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+# Production-specific settings
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health"  # Minimal exposure in production
+
+logging:
+  level:
+    com.trading.bot: INFO
+    root: WARN
+
+# CONFIGURATION VALIDATION NOTES:
+# 
+# 1. API Keys:
+#    - Must be valid Binance Options API keys
+#    - Must have options trading permissions enabled
+#    - Recommend using IP whitelisting for security
+# 
+# 2. Session Times:
+#    - start-time must be before end-time
+#    - Times are in local system timezone
+#    - Consider market hours and liquidity
+# 
+# 3. Risk Management:
+#    - stop-loss-percentage: 0-99 (percentage of position value)
+#    - profit-target-percentage: > 0 (percentage of position value)  
+#    - portfolio-risk-percentage: 0-99 (percentage of max theoretical loss)
+# 
+# 4. Position Sizing:
+#    - position-quantity: Must be >= minimum order size for BTC options
+#    - strike-distance: Must be > 0, typically 5-20 strikes
+# 
+# 5. Telegram (Optional):
+#    - Both bot-token and chat-id must be provided if using notifications
+#    - Test notifications before live trading
+# 
+# SECURITY BEST PRACTICES:
+# 
+# 1. File Permissions:
+#    chmod 600 config.yml  # Read/write for owner only
+# 
+# 2. Environment Variables (Alternative):
+#    export TRADING_API_KEY="your_api_key"
+#    export TRADING_SECRET_KEY="your_secret_key"
+# 
+# 3. Encrypted Storage:
+#    Consider using tools like HashiCorp Vault or AWS Secrets Manager
+# 
+# 4. API Key Restrictions:
+#    - Enable only necessary permissions (options trading)
+#    - Set IP whitelist restrictions
+#    - Monitor API usage regularly
+# 
+# 5. Monitoring:
+#    - Monitor log files for suspicious activity
+#    - Set up alerts for configuration changes
+#    - Regularly audit API key usage
